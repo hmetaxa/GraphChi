@@ -56,7 +56,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
     }
 
     private void execute(int numIters) throws Exception {
-        File graphFile = new File(baseFilename);
+        //File graphFile = new File(baseFilename);
 
         /**
          * Use local drunkard mob companion. You can also pass a remote
@@ -80,12 +80,13 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 
         /* Ask companion to dump the results to file */
         int nTop = 100;
-        companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
-                + (firstSource + numSources - 1) + ".top" + nTop, nTop);
+        //companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
+        //        + (firstSource + numSources - 1) + ".top" + nTop, nTop);
 
         /* For debug */
         VertexIdTranslate vertexIdTranslate = this.drunkardMobEngine.getVertexIdTranslate();
-        String SQLLitedb = "jdbc:sqlite:C:/projects/Datasets/DBLPManage/citation-network2.db";
+        //String SQLLitedb = "jdbc:sqlite:C:/projects/Datasets/DBLPManage/citation-network2.db";
+        String SQLLitedb = "jdbc:sqlite:" + baseFilename;
         companion.outputDistributions(SQLLitedb, vertexIdTranslate, nTop);
 
         IdCount[] topForFirst = companion.getTop(firstSource, 10);
@@ -208,7 +209,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             // Run
             int firstSource = Integer.parseInt(cmdLine.getOptionValue("firstsource"));
             int numSources = 361500;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
-            int walksPerSource = 1000;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
+            int walksPerSource = 100;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
             int nIters = 4;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
 
