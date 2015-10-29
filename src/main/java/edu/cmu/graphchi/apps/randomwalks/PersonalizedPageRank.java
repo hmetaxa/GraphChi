@@ -79,7 +79,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         drunkardMobEngine.run(numIters);
 
         /* Ask companion to dump the results to file */
-        int nTop = 100;
+        int nTop = 50;
         //companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
         //        + (firstSource + numSources - 1) + ".top" + nTop, nTop);
 
@@ -191,7 +191,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             String baseFilename = "C:/projects/Datasets/ACM/PTM3DB.db"; //cmdLine.getOptionValue("graph");
             String SQLLitedb = "jdbc:sqlite:" + baseFilename;
             int nShards = Integer.parseInt(cmdLine.getOptionValue("nshards"));
-            String fileType = (cmdLine.hasOption("filetype") ? cmdLine.getOptionValue("filetype") : null);
+            //String fileType = (cmdLine.hasOption("filetype") ? cmdLine.getOptionValue("filetype") : null);
 
             //--graph=C:/projects/Datasets/DBLPManage/citation-network2_NET.csv --nshards=4 --niters=5 --firstsource=0 --walkspersource=1000 --nsources=1000
             /* Create shards */
@@ -207,7 +207,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             }
 
             // Run
-            int firstSource = Integer.parseInt(cmdLine.getOptionValue("firstsource"));
+            int firstSource = 0; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
             int numSources = 361500;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
             int walksPerSource = 100;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
             int nIters = 4;//Integer.parseInt(cmdLine.getOptionValue("niters"));
