@@ -27,23 +27,24 @@ import java.util.logging.Logger;
 
 /**
  * Computes estimate of personalized pagerank using the DrunkardMobEngine.
- * <b>Note:</b> this version omits walks to adjacent vertices, and thus could be a
- * basis for recommendation engine. To remove that functionality, modify method
- * getNotTrackedVertices()
+ * <b>Note:</b> this version omits walks to adjacent vertices, and thus could be
+ * a basis for recommendation engine. To remove that functionality, modify
+ * method getNotTrackedVertices()
+ *
  * @author Aapo Kyrola
  */
 public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, EmptyType> {
 
     private static double RESET_PROBABILITY = 0.15;
     private static Logger logger = ChiLogger.getLogger("personalized-pagerank");
-    private DrunkardMobEngine<EmptyType, EmptyType>  drunkardMobEngine;
+    private DrunkardMobEngine<EmptyType, EmptyType> drunkardMobEngine;
     private String baseFilename;
     private int firstSource;
     private int numSources;
     private int numWalksPerSource;
     private String companionUrl;
 
-    public PersonalizedPageRank(String companionUrl, String baseFilename, int nShards, int firstSource, int numSources, int walksPerSource) throws Exception{
+    public PersonalizedPageRank(String companionUrl, String baseFilename, int nShards, int firstSource, int numSources, int walksPerSource) throws Exception {
         this.baseFilename = baseFilename;
         this.drunkardMobEngine = new DrunkardMobEngine<EmptyType, EmptyType>(baseFilename, nShards,
                 new IntDrunkardFactory());
@@ -57,19 +58,22 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
     private void execute(int numIters) throws Exception {
         File graphFile = new File(baseFilename);
 
-        /** Use local drunkard mob companion. You can also pass a remote reference
-         *  by using Naming.lookup("rmi://my-companion")
+        /**
+         * Use local drunkard mob companion. You can also pass a remote
+         * reference by using Naming.lookup("rmi://my-companion")
          */
         RemoteDrunkardCompanion companion;
         if (companionUrl.equals("local")) {
             companion = new IntDrunkardCompanion(4, Runtime.getRuntime().maxMemory() / 3);
-        }  else {
+        } else {
             companion = (RemoteDrunkardCompanion) Naming.lookup(companionUrl);
         }
 
         /* Configure walk sources. Note, GraphChi's internal ids are used. */
         DrunkardJob drunkardJob = this.drunkardMobEngine.addJob("personalizedPageRank",
                 EdgeDirection.OUT_EDGES, this, companion);
+        //om int curNumSources = firstSource + numSources > drunkardMobEngine.getEngine().numVertices() ? drunkardMobEngine.getEngine().numVertices() - firstSource : numSources;
+        //om drunkardJob.configureSourceRangeInternalIds(firstSource, curNumSources, numWalksPerSource);
 
         drunkardJob.configureSourceRangeInternalIds(firstSource, numSources, numWalksPerSource);
         drunkardMobEngine.run(numIters);
@@ -81,10 +85,13 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 
         /* For debug */
         VertexIdTranslate vertexIdTranslate = this.drunkardMobEngine.getVertexIdTranslate();
+        String SQLLitedb = "jdbc:sqlite:C:/projects/Datasets/DBLPManage/citation-network2.db";
+        companion.outputDistributions(SQLLitedb, vertexIdTranslate, nTop);
+
         IdCount[] topForFirst = companion.getTop(firstSource, 10);
 
         System.out.println("Top visits from source vertex " + vertexIdTranslate.forward(firstSource) + " (internal id=" + firstSource + ")");
-        for(IdCount idc : topForFirst) {
+        for (IdCount idc : topForFirst) {
             System.out.println(vertexIdTranslate.backward(idc.id) + ": " + idc.count);
         }
 
@@ -92,6 +99,9 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         if (companion instanceof DrunkardCompanion) {
             ((DrunkardCompanion) companion).close();
         }
+
+        //om return curNumSources + firstSource == drunkardMobEngine.getEngine().numVertices() ? -1 : curNumSources + firstSource;
+        // }
     }
 
     /**
@@ -99,53 +109,54 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
      */
     @Override
     public void processWalksAtVertex(WalkArray walkArray,
-                                     ChiVertex<EmptyType, EmptyType> vertex,
-                                     DrunkardContext drunkardContext_,
-                                     Random randomGenerator) {
-        int[] walks = ((IntWalkArray)walkArray).getArray();
+            ChiVertex<EmptyType, EmptyType> vertex,
+            DrunkardContext drunkardContext_,
+            Random randomGenerator) {
+        int[] walks = ((IntWalkArray) walkArray).getArray();
         IntDrunkardContext drunkardContext = (IntDrunkardContext) drunkardContext_;
         int numWalks = walks.length;
         int numOutEdges = vertex.numOutEdges();
 
         // Advance each walk to a random out-edge (if any)
         if (numOutEdges > 0) {
-            for(int i=0; i < numWalks; i++) {
+            for (int i = 0; i < numWalks; i++) {
                 int walk = walks[i];
 
                 // Reset?
                 if (randomGenerator.nextDouble() < RESET_PROBABILITY) {
                     drunkardContext.resetWalk(walk, false);
                 } else {
-                    int nextHop  = vertex.getOutEdgeId(randomGenerator.nextInt(numOutEdges));
+                    int nextHop = vertex.getOutEdgeId(randomGenerator.nextInt(numOutEdges));
 
                     // Optimization to tell the manager that walks that have just been started
                     // need not to be tracked.
-                    boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
+                    // Omiros: we want to track every node  boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
+                    boolean shouldTrack = true;
+                    //boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
                     drunkardContext.forwardWalkTo(walk, nextHop, shouldTrack);
                 }
             }
 
         } else {
             // Reset all walks -- no where to go from here
-            for(int i=0; i < numWalks; i++) {
+            for (int i = 0; i < numWalks; i++) {
                 drunkardContext.resetWalk(walks[i], false);
             }
         }
     }
 
-
-
     @Override
     /**
-     * Instruct drunkardMob not to track visits to this vertex's immediate out-neighbors.
+     * Instruct drunkardMob not to track visits to this vertex's immediate
+     * out-neighbors.
      */
     public int[] getNotTrackedVertices(ChiVertex<EmptyType, EmptyType> vertex) {
-        int[] notCounted = new int[1 + vertex.numOutEdges()];
-        for(int i=0; i < vertex.numOutEdges(); i++) {
-            notCounted[i + 1] = vertex.getOutEdgeId(i);
-        }
+        int[] notCounted = new int[1];// + vertex.numOutEdges()];
+//        for(int i=0; i < vertex.numOutEdges(); i++) {
+//            notCounted[i + 1] = vertex.getOutEdgeId(i);
+//        }
         notCounted[0] = vertex.getId();
-         return notCounted;
+        return notCounted;
     }
 
     protected static FastSharder createSharder(String graphName, int numShards) throws IOException {
@@ -154,6 +165,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 
     public static void main(String[] args) throws Exception {
 
+        Class.forName("org.sqlite.JDBC");
         /* Configure command line */
         Options cmdLineOptions = new Options();
         cmdLineOptions.addOption("g", "graph", true, "graph file name");
@@ -169,33 +181,35 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 
             /* Parse command line */
             CommandLineParser parser = new PosixParser();
-            CommandLine cmdLine =  parser.parse(cmdLineOptions, args);
+            CommandLine cmdLine = parser.parse(cmdLineOptions, args);
 
             /**
              * Preprocess graph if needed
              */
-            String baseFilename = cmdLine.getOptionValue("graph");
+            //String SQLLitedb = "jdbc:sqlite:C:/projects/Datasets/ACM/PTM3DB.db";
+            String baseFilename = "C:/projects/Datasets/ACM/PTM3DB.db"; //cmdLine.getOptionValue("graph");
+            String SQLLitedb = "jdbc:sqlite:" + baseFilename;
             int nShards = Integer.parseInt(cmdLine.getOptionValue("nshards"));
             String fileType = (cmdLine.hasOption("filetype") ? cmdLine.getOptionValue("filetype") : null);
 
+            //--graph=C:/projects/Datasets/DBLPManage/citation-network2_NET.csv --nshards=4 --niters=5 --firstsource=0 --walkspersource=1000 --nsources=1000
             /* Create shards */
-            if (baseFilename.equals("pipein")) {     // Allow piping graph in
-                FastSharder sharder = createSharder(baseFilename, nShards);
-                sharder.shard(System.in, fileType);
+            FastSharder sharder = createSharder(baseFilename, nShards);
+            if (!new File(ChiFilenames.getFilenameIntervals(baseFilename, nShards)).exists()) {
+                sharder.shard(SQLLitedb, "Select cast(pubId as INTEGER) as Node1, cast(CitationId as INTEGER) as Node2, '' AS Value FROM PubCitation\n" +
+"where CitationId Not like 'RFC%'\n" +
+"UNION\n" +
+"Select cast(pubId as INTEGER) as Node1, 30000000+cast(substr(CitationId,4) as INTEGER) as Node2, '' AS Value FROM PubCitation\n" +
+"where CitationId  like 'RFC%'");
             } else {
-                FastSharder sharder = createSharder(baseFilename, nShards);
-                if (!new File(ChiFilenames.getFilenameIntervals(baseFilename, nShards)).exists()) {
-                    sharder.shard(new FileInputStream(new File(baseFilename)), fileType);
-                } else {
-                    logger.info("Found shards -- no need to pre-process");
-                }
+                logger.info("Found shards -- no need to pre-process");
             }
 
             // Run
             int firstSource = Integer.parseInt(cmdLine.getOptionValue("firstsource"));
-            int numSources = Integer.parseInt(cmdLine.getOptionValue("nsources"));
-            int walksPerSource = Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = Integer.parseInt(cmdLine.getOptionValue("niters"));
+            int numSources = 361500;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
+            int walksPerSource = 1000;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
+            int nIters = 4;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
 
             PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,

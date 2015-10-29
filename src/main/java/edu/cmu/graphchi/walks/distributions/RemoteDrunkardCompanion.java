@@ -1,5 +1,6 @@
 package edu.cmu.graphchi.walks.distributions;
 
+import edu.cmu.graphchi.preprocessing.VertexIdTranslate;
 import edu.cmu.graphchi.util.IdCount;
 import edu.cmu.graphchi.walks.WalkArray;
 
@@ -7,13 +8,13 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 /**
- * @author  Aapo Kyrola, akyrola@twitter.com
+ * @author Aapo Kyrola, akyrola@twitter.com
  */
 public interface RemoteDrunkardCompanion extends Remote {
 
     /**
-     * Set a list of ids that should not be counted for vertexId's
-     * distribution.
+     * Set a list of ids that should not be counted for vertexId's distribution.
+     *
      * @param sourceIdx
      * @param avoidList list (unsorted) of ids to omit
      */
@@ -23,11 +24,11 @@ public interface RemoteDrunkardCompanion extends Remote {
 
     void processWalks(WalkArray walks, int[] atVertices) throws RemoteException;
 
-
     void outputDistributions(String outputFile) throws RemoteException;
 
     void outputDistributions(String outputFile, int nTop) throws RemoteException;
 
+    void outputDistributions(String SQLLitedb, VertexIdTranslate vertexIdTranslate, int nTop) throws RemoteException;
 
     IdCount[] getTop(int vertexId, int nTop) throws RemoteException;
 

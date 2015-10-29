@@ -1,6 +1,7 @@
 package edu.cmu.graphchi.walks.distributions;
 
 import edu.cmu.graphchi.ChiLogger;
+import edu.cmu.graphchi.preprocessing.VertexIdTranslate;
 import edu.cmu.graphchi.walks.WalkArray;
 import edu.cmu.graphchi.util.IdCount;
 import edu.cmu.graphchi.util.IntegerBuffer;
@@ -10,6 +11,11 @@ import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -312,6 +318,73 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         outputDistributions(outputFile, 10);
     }
 
+    
+      public void outputDistributions(String SQLLitedb, VertexIdTranslate vertexIdTranslate, int nTop) throws RemoteException {
+        logger.info("Waiting for processing to finish");
+        while (outstanding.get() > 0) {
+            logger.info("...");
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        Connection connection = null;
+        try {
+
+
+            connection = DriverManager.getConnection(SQLLitedb);
+            Statement statement = connection.createStatement();
+            statement.setQueryTimeout(30);  // set timeout to 30 sec.
+
+            statement.executeUpdate("create table if not exists PRLinks (Source int, Target int, Counts int)");
+            //String deleteSQL = String.format("Delete from PRLinks  ");
+            //statement.executeUpdate(deleteSQL);
+
+            PreparedStatement bulkInsert = null;
+            String sql = "insert into PRLinks values(?,?,?);";
+
+            connection.setAutoCommit(false);
+            bulkInsert = connection.prepareStatement(sql);
+
+            for (int i = 0; i < sourceVertexIds.length; i++) {
+                int sourceVertex = sourceVertexIds[i];
+                drainBuffer(i);
+                DiscreteDistribution distr = distributions[i];
+                IdCount[] topVertices = distr.getTop(nTop);
+
+                for (IdCount vc : topVertices) {
+                    bulkInsert.setInt(1, vertexIdTranslate.backward(sourceVertex));
+                    bulkInsert.setInt(2, vertexIdTranslate.backward(vc.id));
+                    bulkInsert.setInt(3, vc.count);
+                    bulkInsert.executeUpdate();
+                }
+
+            }
+
+            connection.commit();
+            if (bulkInsert != null) {
+                bulkInsert.close();
+            }
+            connection.setAutoCommit(true);
+
+        } catch (SQLException e) {
+
+            if (connection != null) {
+                try {
+                    System.err.print("Transaction is being rolled back");
+                    connection.rollback();
+                } catch (SQLException excep) {
+                    System.err.print("Error in insert grantSimilarity");
+                }
+            }
+        } finally {
+        }
+
+
+    }
+      
     /*
       Writes the top visit counts to a binary file.
      */
