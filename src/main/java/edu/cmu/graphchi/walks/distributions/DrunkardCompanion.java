@@ -339,8 +339,8 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
             statement.executeUpdate("create table if not exists PRLinks (Source int, Target int, Counts int)");
-            //String deleteSQL = String.format("Delete from PRLinks  ");
-            //statement.executeUpdate(deleteSQL);
+            String deleteSQL = String.format("Delete from PRLinks  ");
+            statement.executeUpdate(deleteSQL);
 
             PreparedStatement bulkInsert = null;
             String sql = "insert into PRLinks values(?,?,?);";

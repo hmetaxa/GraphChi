@@ -190,7 +190,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             //String SQLLitedb = "jdbc:sqlite:C:/projects/Datasets/ACM/PTM3DB.db";
             String baseFilename = "C:/projects/Datasets/ACM/PTM3DB.db"; //cmdLine.getOptionValue("graph");
             String SQLLitedb = "jdbc:sqlite:" + baseFilename;
-            int nShards = Integer.parseInt(cmdLine.getOptionValue("nshards"));
+            int nShards = 1; //Integer.parseInt(cmdLine.getOptionValue("nshards"));
             //String fileType = (cmdLine.hasOption("filetype") ? cmdLine.getOptionValue("filetype") : null);
 
             //--graph=C:/projects/Datasets/DBLPManage/citation-network2_NET.csv --nshards=4 --niters=5 --firstsource=0 --walkspersource=1000 --nsources=1000
@@ -210,7 +210,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             int firstSource = 0; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
             int numSources = 361500;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
             int walksPerSource = 100;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = 4;//Integer.parseInt(cmdLine.getOptionValue("niters"));
+            int nIters = 1;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
 
             PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,
