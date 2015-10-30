@@ -43,8 +43,9 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
     private int numSources;
     private int numWalksPerSource;
     private String companionUrl;
+    private EdgeDirection edgeDirection;
 
-    public PersonalizedPageRank(String companionUrl, String baseFilename, int nShards, int firstSource, int numSources, int walksPerSource) throws Exception {
+    public PersonalizedPageRank(String companionUrl, String baseFilename, int nShards, int firstSource, int numSources, int walksPerSource, EdgeDirection edgeDirection) throws Exception {
         this.baseFilename = baseFilename;
         this.drunkardMobEngine = new DrunkardMobEngine<EmptyType, EmptyType>(baseFilename, nShards,
                 new IntDrunkardFactory());
@@ -53,6 +54,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         this.firstSource = firstSource;
         this.numSources = numSources;
         this.numWalksPerSource = walksPerSource;
+        this.edgeDirection = edgeDirection;
     }
 
     private void execute(int numIters) throws Exception {
@@ -71,7 +73,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 
         /* Configure walk sources. Note, GraphChi's internal ids are used. */
         DrunkardJob drunkardJob = this.drunkardMobEngine.addJob("personalizedPageRank",
-                EdgeDirection.OUT_EDGES, this, companion);
+                edgeDirection, this, companion);
         //om int curNumSources = firstSource + numSources > drunkardMobEngine.getEngine().numVertices() ? drunkardMobEngine.getEngine().numVertices() - firstSource : numSources;
         //om drunkardJob.configureSourceRangeInternalIds(firstSource, curNumSources, numWalksPerSource);
 
@@ -79,7 +81,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         drunkardMobEngine.run(numIters);
 
         /* Ask companion to dump the results to file */
-        int nTop = 50;
+        int nTop = 20;
         //companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
         //        + (firstSource + numSources - 1) + ".top" + nTop, nTop);
 
@@ -116,10 +118,11 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         int[] walks = ((IntWalkArray) walkArray).getArray();
         IntDrunkardContext drunkardContext = (IntDrunkardContext) drunkardContext_;
         int numWalks = walks.length;
-        int numOutEdges = vertex.numOutEdges();
+
+        int numEdges = edgeDirection == EdgeDirection.OUT_EDGES ? vertex.numOutEdges() : vertex.numEdges();
 
         // Advance each walk to a random out-edge (if any)
-        if (numOutEdges > 0) {
+        if (numEdges > 0) {
             for (int i = 0; i < numWalks; i++) {
                 int walk = walks[i];
 
@@ -127,13 +130,14 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
                 if (randomGenerator.nextDouble() < RESET_PROBABILITY) {
                     drunkardContext.resetWalk(walk, false);
                 } else {
-                    int nextHop = vertex.getOutEdgeId(randomGenerator.nextInt(numOutEdges));
+                    int nextHop = edgeDirection == EdgeDirection.OUT_EDGES ? vertex.getOutEdgeId(randomGenerator.nextInt(numEdges))
+                            : vertex.edge(randomGenerator.nextInt(numEdges)).getVertexId();
 
                     // Optimization to tell the manager that walks that have just been started
                     // need not to be tracked.
                     // Omiros: we want to track every node  boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
-                    boolean shouldTrack = true;
-                    //boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
+                    //boolean shouldTrack = true;
+                    boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
                     drunkardContext.forwardWalkTo(walk, nextHop, shouldTrack);
                 }
             }
@@ -197,24 +201,24 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             /* Create shards */
             FastSharder sharder = createSharder(baseFilename, nShards);
             if (!new File(ChiFilenames.getFilenameIntervals(baseFilename, nShards)).exists()) {
-                sharder.shard(SQLLitedb, "Select cast(pubId as INTEGER) as Node1, cast(CitationId as INTEGER) as Node2, '' AS Value FROM PubCitation\n" +
-"where CitationId Not like 'RFC%'\n" +
-"UNION\n" +
-"Select cast(pubId as INTEGER) as Node1, 30000000+cast(substr(CitationId,4) as INTEGER) as Node2, '' AS Value FROM PubCitation\n" +
-"where CitationId  like 'RFC%'");
+                sharder.shard(SQLLitedb, "select source.RowId  as Node1, target.RowId  as Node2, '' AS Value\n" +
+"FROM PubCitation \n" +
+"INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId and source.Type=0 \n" +
+"INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId and target.Type=1 ");
             } else {
                 logger.info("Found shards -- no need to pre-process");
             }
 
             // Run
             int firstSource = 0; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
-            int numSources = 361500;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
-            int walksPerSource = 100;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = 1;//Integer.parseInt(cmdLine.getOptionValue("niters"));
+            int numSources = 449574;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
+            int walksPerSource = 30;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
+            int nIters = 5;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
+            EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
 
             PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,
-                    firstSource, numSources, walksPerSource);
+                    firstSource, numSources, walksPerSource, edgeDirection);
             pp.execute(nIters);
 
         } catch (Exception err) {
