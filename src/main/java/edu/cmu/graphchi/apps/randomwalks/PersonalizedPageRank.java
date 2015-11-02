@@ -72,8 +72,10 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         }
 
         /* Configure walk sources. Note, GraphChi's internal ids are used. */
+        //DrunkardJob drunkardJob = this.drunkardMobEngine.addJob("personalizedPageRank",
+//                edgeDirection, this, companion);
         DrunkardJob drunkardJob = this.drunkardMobEngine.addJob("personalizedPageRank",
-                edgeDirection, this, companion);
+                EdgeDirection.OUT_EDGES, this, companion);
         //om int curNumSources = firstSource + numSources > drunkardMobEngine.getEngine().numVertices() ? drunkardMobEngine.getEngine().numVertices() - firstSource : numSources;
         //om drunkardJob.configureSourceRangeInternalIds(firstSource, curNumSources, numWalksPerSource);
 
@@ -82,8 +84,8 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 
         /* Ask companion to dump the results to file */
         int nTop = 20;
-        //companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
-        //        + (firstSource + numSources - 1) + ".top" + nTop, nTop);
+        companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
+                + (firstSource + numSources - 1) + ".top" + nTop, nTop);
 
         /* For debug */
         VertexIdTranslate vertexIdTranslate = this.drunkardMobEngine.getVertexIdTranslate();
@@ -118,11 +120,10 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         int[] walks = ((IntWalkArray) walkArray).getArray();
         IntDrunkardContext drunkardContext = (IntDrunkardContext) drunkardContext_;
         int numWalks = walks.length;
-
-        int numEdges = edgeDirection == EdgeDirection.OUT_EDGES ? vertex.numOutEdges() : vertex.numEdges();
+        int numOutEdges = vertex.numOutEdges();
 
         // Advance each walk to a random out-edge (if any)
-        if (numEdges > 0) {
+        if (numOutEdges > 0) {
             for (int i = 0; i < numWalks; i++) {
                 int walk = walks[i];
 
@@ -130,14 +131,11 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
                 if (randomGenerator.nextDouble() < RESET_PROBABILITY) {
                     drunkardContext.resetWalk(walk, false);
                 } else {
-                    int nextHop = edgeDirection == EdgeDirection.OUT_EDGES ? vertex.getOutEdgeId(randomGenerator.nextInt(numEdges))
-                            : vertex.edge(randomGenerator.nextInt(numEdges)).getVertexId();
+                    int nextHop = vertex.getOutEdgeId(randomGenerator.nextInt(numOutEdges));
 
                     // Optimization to tell the manager that walks that have just been started
                     // need not to be tracked.
-                    // Omiros: we want to track every node  boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
-                    //boolean shouldTrack = true;
-                    boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
+                    boolean shouldTrack = true; //!drunkardContext.isWalkStartedFromVertex(walk);
                     drunkardContext.forwardWalkTo(walk, nextHop, shouldTrack);
                 }
             }
@@ -156,14 +154,73 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
      * out-neighbors.
      */
     public int[] getNotTrackedVertices(ChiVertex<EmptyType, EmptyType> vertex) {
-        int[] notCounted = new int[1];// + vertex.numOutEdges()];
-//        for(int i=0; i < vertex.numOutEdges(); i++) {
-//            notCounted[i + 1] = vertex.getOutEdgeId(i);
-//        }
+        int[] notCounted = new int[1 + vertex.numOutEdges()];
+        for (int i = 0; i < vertex.numOutEdges(); i++) {
+            notCounted[i + 1] = vertex.getOutEdgeId(i);
+        }
         notCounted[0] = vertex.getId();
         return notCounted;
     }
 
+//    /**
+//     * WalkUpdateFunction interface implementations
+//     */
+//    @Override
+//    public void processWalksAtVertex(WalkArray walkArray,
+//            ChiVertex<EmptyType, EmptyType> vertex,
+//            DrunkardContext drunkardContext_,
+//            Random randomGenerator) {
+//        int[] walks = ((IntWalkArray) walkArray).getArray();
+//        IntDrunkardContext drunkardContext = (IntDrunkardContext) drunkardContext_;
+//        int numWalks = walks.length;
+//
+//        int numEdges = edgeDirection == EdgeDirection.OUT_EDGES
+//                ? vertex.numOutEdges()
+//                : vertex.numEdges();
+//
+//        // Advance each walk to a random out-edge (if any)
+//        if (numEdges > 0) {
+//            for (int i = 0; i < numWalks; i++) {
+//                int walk = walks[i];
+//
+//                // Reset?
+//                if (randomGenerator.nextDouble() < RESET_PROBABILITY) {
+//                    drunkardContext.resetWalk(walk, false);
+//                } else {
+//                    int nextHop = edgeDirection == EdgeDirection.OUT_EDGES
+//                            ? vertex.getOutEdgeId(randomGenerator.nextInt(numEdges))
+//                            : vertex.edge(randomGenerator.nextInt(numEdges)).getVertexId();
+//
+//                    // Optimization to tell the manager that walks that have just been started
+//                    // need not to be tracked.
+//                    // Omiros: we want to track every node  boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
+//                    boolean shouldTrack = true;
+//                    //boolean shouldTrack = !drunkardContext.isWalkStartedFromVertex(walk);
+//                    drunkardContext.forwardWalkTo(walk, nextHop, shouldTrack);
+//                }
+//            }
+//
+//        } else {
+//            // Reset all walks -- no where to go from here
+//            for (int i = 0; i < numWalks; i++) {
+//                drunkardContext.resetWalk(walks[i], false);
+//            }
+//        }
+//    }
+//
+//    @Override
+//    /**
+//     * Instruct drunkardMob not to track visits to this vertex's immediate
+//     * out-neighbors.
+//     */
+//    public int[] getNotTrackedVertices(ChiVertex<EmptyType, EmptyType> vertex) {
+//        int[] notCounted = new int[1];// + vertex.numOutEdges()];
+////        for(int i=0; i < vertex.numOutEdges(); i++) {
+////            notCounted[i + 1] = vertex.getOutEdgeId(i);
+////        }
+//        notCounted[0] = vertex.getId();
+//        return notCounted;
+//    }
     protected static FastSharder createSharder(String graphName, int numShards) throws IOException {
         return new FastSharder<EmptyType, EmptyType>(graphName, numShards, null, null, null, null);
     }
@@ -201,21 +258,21 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             /* Create shards */
             FastSharder sharder = createSharder(baseFilename, nShards);
             if (!new File(ChiFilenames.getFilenameIntervals(baseFilename, nShards)).exists()) {
-                sharder.shard(SQLLitedb, "select source.RowId  as Node1, target.RowId  as Node2, '' AS Value\n" +
-"FROM PubCitation \n" +
-"INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId and source.Type=0 \n" +
-"INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId and target.Type=1 ");
+                sharder.shard(SQLLitedb, "select source.RowId  as Node1, target.RowId  as Node2, '' AS Value\n"
+                        + "FROM PubCitation \n"
+                        + "INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId and source.Type=0 \n"
+                        + "INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId and target.Type=1 ");
             } else {
                 logger.info("Found shards -- no need to pre-process");
             }
 
             // Run
-            int firstSource = 0; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
+            int firstSource = 1; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
             int numSources = 449574;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
-            int walksPerSource = 30;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = 5;//Integer.parseInt(cmdLine.getOptionValue("niters"));
+            int walksPerSource = 50;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
+            int nIters = 4;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
-            EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
+            EdgeDirection edgeDirection = EdgeDirection.OUT_EDGES;
 
             PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,
                     firstSource, numSources, walksPerSource, edgeDirection);
