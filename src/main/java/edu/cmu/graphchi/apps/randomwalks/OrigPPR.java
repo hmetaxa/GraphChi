@@ -32,7 +32,7 @@ import java.util.logging.Logger;
  * getNotTrackedVertices()
  * @author Aapo Kyrola
  */
-public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, EmptyType> {
+public class OrigPPR implements WalkUpdateFunction<EmptyType, EmptyType> {
 
     private static double RESET_PROBABILITY = 0.15;
     private static Logger logger = ChiLogger.getLogger("personalized-pagerank");
@@ -43,7 +43,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
     private int numWalksPerSource;
     private String companionUrl;
 
-    public PersonalizedPageRank(String companionUrl, String baseFilename, int nShards, int firstSource, int numSources, int walksPerSource) throws Exception{
+    public OrigPPR(String companionUrl, String baseFilename, int nShards, int firstSource, int numSources, int walksPerSource) throws Exception{
         this.baseFilename = baseFilename;
         this.drunkardMobEngine = new DrunkardMobEngine<EmptyType, EmptyType>(baseFilename, nShards,
                 new IntDrunkardFactory());
@@ -198,7 +198,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             int nIters = Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
 
-            PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,
+            OrigPPR pp = new OrigPPR(companionUrl, baseFilename, nShards,
                     firstSource, numSources, walksPerSource);
             pp.execute(nIters);
 
