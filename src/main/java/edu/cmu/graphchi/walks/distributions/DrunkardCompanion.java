@@ -26,14 +26,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
- * DrunkardCompanion is a remote (or local) service that receives walks from the DrunkardEngine
- * and maintains a distribution of visits from each source.
- * Done partially during internship at Twitter, Fall 2012
+ * DrunkardCompanion is a remote (or local) service that receives walks from the
+ * DrunkardEngine and maintains a distribution of visits from each source. Done
+ * partially during internship at Twitter, Fall 2012
+ *
  * @author Aapo Kyrola, akyrola@cs.cmu.edu
  */
 public abstract class DrunkardCompanion extends UnicastRemoteObject implements RemoteDrunkardCompanion {
 
     protected static class WalkSubmission {
+
         WalkArray walks;
         int[] atVertices;
 
@@ -60,7 +62,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
     protected LinkedBlockingQueue<WalkSubmission> pendingQueue = new LinkedBlockingQueue<WalkSubmission>();
 
     protected static Logger logger = ChiLogger.getLogger("drunkardcompanion");
-    protected Timer timer  = new Timer(true);
+    protected Timer timer = new Timer(true);
 
     private boolean closed = false;
 
@@ -72,10 +74,9 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         companionOverHeads += sourceVertexIds.length * 4;
         companionOverHeads += distrLocks.length * 4;
 
-
         long bufferMem = 0;
         long maxMem = 0;
-        for(IntegerBuffer buf : buffers) {
+        for (IntegerBuffer buf : buffers) {
             long est = buf.memorySizeEst();
             bufferMem += est;
             maxMem = Math.max(maxMem, est);
@@ -84,7 +85,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         long distributionMem = 0;
         long maxDistMem = 0;
         long avoidMem = 0;
-        for(DiscreteDistribution dist : distributions) {
+        for (DiscreteDistribution dist : distributions) {
             long est = dist.memorySizeEst();
             distributionMem += est;
             maxDistMem = Math.max(est, maxDistMem);
@@ -107,7 +108,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         logger.info("Max distribution: " + nf.format(maxDistMem / 1024.) + " kb");
 
         long totalMem = companionOverHeads + bufferMem + distributionMem;
-        logger.info("** Total:  " + nf.format(totalMem / 1024. / 1024. / 1024.) + " GB (low-mem limit " + Runtime.getRuntime().maxMemory() * 0.25 / 1024. / 1024. / 1024. + "GB)" );
+        logger.info("** Total:  " + nf.format(totalMem / 1024. / 1024. / 1024.) + " GB (low-mem limit " + Runtime.getRuntime().maxMemory() * 0.25 / 1024. / 1024. / 1024. + "GB)");
         isLowInMemory = totalMem > maxMemoryBytes;
 
         if (isLowInMemory) {
@@ -121,15 +122,15 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
      * Removes tails from distributions to save memory
      */
     private void compactMemoryUsage() {
-        long before=0;
-        long after=0;
+        long before = 0;
+        long after = 0;
 
-        for(int i=0; i < distributions.length; i++) {
+        for (int i = 0; i < distributions.length; i++) {
             DiscreteDistribution prevDist, newDist;
             synchronized (distrLocks[i]) {
 
                 prevDist = distributions[i];
-                newDist =  prevDist.filteredAndShift(2);
+                newDist = prevDist.filteredAndShift(2);
                 distributions[i] = newDist;
             }
             before += prevDist.memorySizeEst();
@@ -139,19 +140,19 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         logger.info("** Compacted: " + (before / 1024. / 1024. / 1024.) + " GB --> " + (after / 1024. / 1024. / 1024.) + " GB");
     }
 
-
     /**
      * Creates the DrunkardCompanion object
+     *
      * @param numThreads number of worker threads (4 is common)
-     * @param maxMemoryBytes maximum amount of memory to use for storing the distributions
+     * @param maxMemoryBytes maximum amount of memory to use for storing the
+     * distributions
      * @throws RemoteException
      */
-    public DrunkardCompanion( final int numThreads, final long maxMemoryBytes) throws RemoteException {
+    public DrunkardCompanion(final int numThreads, final long maxMemoryBytes) throws RemoteException {
         this.maxMemoryBytes = maxMemoryBytes;
         parallelExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
-
-        for(int threadId=0; threadId < numThreads; threadId++) {
+        for (int threadId = 0; threadId < numThreads; threadId++) {
             final int _threadId = threadId;
             Thread processingThread = new Thread(new Runnable() {
                 @Override
@@ -159,7 +160,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
                     try {
 
                         long unpurgedWalks = 0;
-                        while(!closed) {
+                        while (!closed) {
 
                             WalkSubmission subm = pendingQueue.poll(2000, TimeUnit.MILLISECONDS);
                             if (subm != null) {
@@ -173,7 +174,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
 
                                     // Loop to see what to drain. Every thread looks for
                                     // different buffers.
-                                    for(int i=_threadId; i < sourceVertexIds.length; i+=numThreads) {
+                                    for (int i = _threadId; i < sourceVertexIds.length; i += numThreads) {
                                         if (buffers[i].size() >= BUFFER_MAX || closed) {
                                             // Drain asynchronously
                                             outstanding.incrementAndGet();
@@ -183,18 +184,20 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
                                             synchronized (buffers[i]) {
                                                 buffers[i] = new IntegerBuffer(BUFFER_CAPACITY);
                                             }
-                                            parallelExecutor.submit(new Runnable() { public void run() {
-                                                try {
-                                                    int[] d = toDrain.toIntArray();
-                                                    Arrays.sort(d);
-                                                    DiscreteDistribution dist = new DiscreteDistribution(d);
-                                                    mergeWith(drainIdx, dist);
-                                                } catch (Exception err ) {
-                                                    err.printStackTrace();
-                                                } finally {
-                                                    outstanding.decrementAndGet();
+                                            parallelExecutor.submit(new Runnable() {
+                                                public void run() {
+                                                    try {
+                                                        int[] d = toDrain.toIntArray();
+                                                        Arrays.sort(d);
+                                                        DiscreteDistribution dist = new DiscreteDistribution(d);
+                                                        mergeWith(drainIdx, dist);
+                                                    } catch (Exception err) {
+                                                        err.printStackTrace();
+                                                    } finally {
+                                                        outstanding.decrementAndGet();
+                                                    }
                                                 }
-                                            }});
+                                            });
                                         }
                                     }
                                 }
@@ -215,30 +218,30 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         synchronized (distrLocks[sourceIdx]) {
             distributions[sourceIdx] = DiscreteDistribution.merge(distributions[sourceIdx], distr);
 
-    /*        if (pruneFraction > 0.0 && isLowInMemory) {
-                int sz = distributions[sourceIdx].sizeExcludingAvoids();
-                if (sz > 200) {
-                    int mx = distributions[sourceIdx].max();
-                    int pruneLimit = 2 + (int) (mx * pruneFraction);
-                    DiscreteDistribution filtered =  distributions[sourceIdx].filteredAndShift((short)pruneLimit);
-                    if (filtered.sizeExcludingAvoids() > 25) { // ad-hoc...
-                        distributions[sourceIdx] = filtered;
-                        int prunedSize = distributions[sourceIdx].sizeExcludingAvoids();
-                        if (sourceIdx % 10000 == 0) {
-                            logger.info("Pruned: " + sz + " => " + prunedSize + " max: " + mx + ", limit=" + pruneLimit);
-                        }
-                    } else {
-                        //  logger.info("Filtering would have deleted almost everything...");
-                        // Try pruning ones
-                        filtered = distributions[sourceIdx].filteredAndShift((short)2);
-                        if (filtered.sizeExcludingAvoids() > 25) {
-                            distributions[sourceIdx] = filtered;
-                        }  else {
-                            distributions[sourceIdx] = distributions[sourceIdx].filteredAndShift((short)1);
-                        }
-                    }
-                }
-            }               */
+            /*        if (pruneFraction > 0.0 && isLowInMemory) {
+             int sz = distributions[sourceIdx].sizeExcludingAvoids();
+             if (sz > 200) {
+             int mx = distributions[sourceIdx].max();
+             int pruneLimit = 2 + (int) (mx * pruneFraction);
+             DiscreteDistribution filtered =  distributions[sourceIdx].filteredAndShift((short)pruneLimit);
+             if (filtered.sizeExcludingAvoids() > 25) { // ad-hoc...
+             distributions[sourceIdx] = filtered;
+             int prunedSize = distributions[sourceIdx].sizeExcludingAvoids();
+             if (sourceIdx % 10000 == 0) {
+             logger.info("Pruned: " + sz + " => " + prunedSize + " max: " + mx + ", limit=" + pruneLimit);
+             }
+             } else {
+             //  logger.info("Filtering would have deleted almost everything...");
+             // Try pruning ones
+             filtered = distributions[sourceIdx].filteredAndShift((short)2);
+             if (filtered.sizeExcludingAvoids() > 25) {
+             distributions[sourceIdx] = filtered;
+             }  else {
+             distributions[sourceIdx] = distributions[sourceIdx].filteredAndShift((short)1);
+             }
+             }
+             }
+             }               */
         }
     }
 
@@ -260,7 +263,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         sourceVertexIds = new int[sources.length];
         distrLocks = new Object[sources.length];
         distributions = new DiscreteDistribution[sources.length];
-        for(int i=0; i < sources.length; i++) {
+        for (int i = 0; i < sources.length; i++) {
             distrLocks[i] = new Object();
             sourceVertexIds[i] = sources[i];
             buffers[i] = new IntegerBuffer(BUFFER_CAPACITY);
@@ -286,10 +289,9 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
             drainBuffer(sourceIdx);
             return distributions[sourceIdx].getTop(nTop);
         } else {
-           throw new IllegalArgumentException("Vertex not found from memory. ");
+            throw new IllegalArgumentException("Vertex not found from memory. ");
         }
     }
-
 
     protected void drainBuffer(int sourceIdx) {
         synchronized (buffers[sourceIdx]) {
@@ -318,8 +320,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         outputDistributions(outputFile, 10);
     }
 
-    
-      public void outputDistributions(String SQLLitedb, VertexIdTranslate vertexIdTranslate, int nTop) throws RemoteException {
+    public void outputDistributions(String SQLLitedb, VertexIdTranslate vertexIdTranslate, int nTop) throws RemoteException {
         logger.info("Waiting for processing to finish");
         while (outstanding.get() > 0) {
             logger.info("...");
@@ -332,7 +333,6 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
 
         Connection connection = null;
         try {
-
 
             connection = DriverManager.getConnection(SQLLitedb);
             Statement statement = connection.createStatement();
@@ -355,10 +355,12 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
                 IdCount[] topVertices = distr.getTop(nTop);
 
                 for (IdCount vc : topVertices) {
-                    bulkInsert.setInt(1, vertexIdTranslate.backward(sourceVertex));
-                    bulkInsert.setInt(2, vertexIdTranslate.backward(vc.id));
-                    bulkInsert.setInt(3, vc.count);
-                    bulkInsert.executeUpdate();
+                    if (vc.count > 0) {
+                        bulkInsert.setInt(1, vertexIdTranslate.backward(sourceVertex));
+                        bulkInsert.setInt(2, vertexIdTranslate.backward(vc.id));
+                        bulkInsert.setInt(3, vc.count);
+                        bulkInsert.executeUpdate();
+                    }
                 }
 
             }
@@ -382,15 +384,14 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         } finally {
         }
 
-
     }
-      
+
     /*
-      Writes the top visit counts to a binary file.
+     Writes the top visit counts to a binary file.
      */
     public void outputDistributions(String outputFile, int nTop) throws RemoteException {
         logger.info("Waiting for processing to finish");
-        while(outstanding.get() > 0) {
+        while (outstanding.get() > 0) {
             logger.info("...");
             try {
                 Thread.sleep(500);
@@ -403,19 +404,19 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
             DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(
                     new File(outputFile))));
 
-            for(int i=0; i<sourceVertexIds.length; i++) {
+            for (int i = 0; i < sourceVertexIds.length; i++) {
                 int sourceVertex = sourceVertexIds[i];
                 drainBuffer(i);
                 DiscreteDistribution distr = distributions[i];
                 IdCount[] topVertices = distr.getTop(nTop);
                 dos.writeInt(sourceVertex);
                 int written = 0;
-                for(IdCount vc : topVertices) {
+                for (IdCount vc : topVertices) {
                     dos.writeInt(vc.id);
                     dos.writeInt(vc.count);
                     written++;
                 }
-                while(written < nTop) {
+                while (written < nTop) {
                     written++;
                     dos.writeInt(-1);
                     dos.writeInt(-1);
