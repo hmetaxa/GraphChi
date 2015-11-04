@@ -715,15 +715,35 @@ public class FastSharder<VertexValueType, EdgeValueType> {
 
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(60);  // set timeout to 30 sec.
+            
+//            this.addEdge(1, 2, null);
+//            this.addEdge(1, 3, null);
+//            this.addEdge(1, 4, null);
+//            this.addEdge(2, 5, null);
+//            this.addEdge(2, 6, null);
+//            this.addEdge(3, 6, null);
+//            this.addEdge(3, 7, null);
+//            this.addEdge(4, 5, null);
+//            this.addEdge(4, 6, null);
+//            this.addEdge(5, 1, null);
+//            this.addEdge(6, 1, null);
+//            this.addEdge(7, 1, null);
+//            this.addEdge(7, 2, null);
+            
+            
+            
+            
             ResultSet rs = statement.executeQuery(sql);
 
             while (rs.next()) {
                 String valueStr = rs.getString("Value");
                 if (valueStr != null && !valueStr.equals("")) {
-                    this.addEdge(rs.getInt("Node1"), rs.getInt("Node2"), valueStr);
+                    this.addEdge(Integer.parseInt(rs.getString("Node1")), Integer.parseInt(rs.getString("Node2")), valueStr);
 
                 } else {
-                    this.addEdge(rs.getInt("Node1"), rs.getInt("Node2"), null);
+                    
+                    this.addEdge(Integer.parseInt(rs.getString("PubId")), Integer.parseInt(rs.getString("CitationId")), null);
+                    //this.addEdge(Integer.parseInt(rs.getString("Node1")), Integer.parseInt(rs.getString("Node2")), null);
                 }
 
             }

@@ -266,6 +266,7 @@ public class DiscreteDistribution {
         while(leftIdx < leftCount && rightIdx < rightCount) {
             if (d1.ids[leftIdx] == d2.ids[rightIdx]) {
                 merged.ids[idx] = d1.ids[leftIdx];
+                
                 merged.counts[idx] = (short) (d1.counts[leftIdx] + d2.counts[rightIdx]);
 
                 // Force to retain negativity
