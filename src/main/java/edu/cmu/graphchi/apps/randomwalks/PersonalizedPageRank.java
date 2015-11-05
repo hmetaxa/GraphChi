@@ -263,15 +263,15 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 "FROM PubCitation \n" +
 "INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId\n" +
 "INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId "
-                        + " WHERE PubCitation.CitationId NOT LIKE 'RFC%'"
+                    //    + " WHERE PubCitation.CitationId NOT LIKE 'RFC%'"
                 );
             } else {
                 logger.info("Found shards -- no need to pre-process");
             }
 
             // Run
-            int firstSource =69; //289931; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
-            int numSources = 1;//361499;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
+            int firstSource =1; //289931; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
+            int numSources = 361499;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
             int walksPerSource = 100;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
             int nIters = 5;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";

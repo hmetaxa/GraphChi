@@ -742,8 +742,8 @@ public class FastSharder<VertexValueType, EdgeValueType> {
 
                 } else {
                     
-                    this.addEdge(Integer.parseInt(rs.getString("PubId")), Integer.parseInt(rs.getString("CitationId")), null);
-                    //this.addEdge(Integer.parseInt(rs.getString("Node1")), Integer.parseInt(rs.getString("Node2")), null);
+                    //this.addEdge(Integer.parseInt(rs.getString("PubId")), Integer.parseInt(rs.getString("CitationId")), null);
+                    this.addEdge(Integer.parseInt(rs.getString("Node1")), Integer.parseInt(rs.getString("Node2")), null);
                 }
 
             }
