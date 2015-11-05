@@ -83,7 +83,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         drunkardMobEngine.run(numIters);
 
         /* Ask companion to dump the results to file */
-        int nTop = 20;
+        int nTop = 40;
         //companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
          //       + (firstSource + numSources - 1) + ".top" + nTop, nTop);
 
@@ -262,7 +262,11 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
                 sharder.shard(SQLLitedb, "select source.RowId  as Node1,PubCitation.PubId,  target.RowId  as Node2, PubCitation.CitationId, '' AS Value\n" +
 "FROM PubCitation \n" +
 "INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId\n" +
-"INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId "
+//"and PubCitation.PubId in\n" +
+//"(select  PubCitation.PubId from pubcitation group by pubid having count(*)>4)\n" +
+"INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId \n" +
+"and PubCitation.citationId in\n" +
+"(select  PubCitation.citationId from pubcitation group by citationId having count(*)>4); "
                     //    + " WHERE PubCitation.CitationId NOT LIKE 'RFC%'"
                 );
             } else {
@@ -270,10 +274,10 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             }
 
             // Run
-            int firstSource =1; //289931; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
-            int numSources = 361499;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
+            int firstSource =80;//225585; //289931; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
+            int numSources = 360720;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
             int walksPerSource = 100;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = 5;//Integer.parseInt(cmdLine.getOptionValue("niters"));
+            int nIters = 4;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
             EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
 
