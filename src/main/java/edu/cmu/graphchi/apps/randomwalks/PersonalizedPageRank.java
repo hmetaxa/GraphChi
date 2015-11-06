@@ -22,6 +22,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.rmi.Naming;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Random;
 import java.util.logging.Logger;
 
@@ -57,7 +62,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         this.edgeDirection = edgeDirection;
     }
 
-    private void execute(int numIters) throws Exception {
+    private void execute(int numIters, int[] nodeIds) throws Exception {
         //File graphFile = new File(baseFilename);
 
         /**
@@ -79,13 +84,14 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         //om int curNumSources = firstSource + numSources > drunkardMobEngine.getEngine().numVertices() ? drunkardMobEngine.getEngine().numVertices() - firstSource : numSources;
         //om drunkardJob.configureSourceRangeInternalIds(firstSource, curNumSources, numWalksPerSource);
 
-        drunkardJob.configureSourceRangeInternalIds(firstSource, numSources, numWalksPerSource);
+        //drunkardJob.configureSourceRangeInternalIds(firstSource, numSources, numWalksPerSource);
+        drunkardJob.configureSourceRangeInternalIds(nodeIds, numWalksPerSource);
         drunkardMobEngine.run(numIters);
 
         /* Ask companion to dump the results to file */
-        int nTop = 40;
+        int nTop = 30;
         //companion.outputDistributions(baseFilename + "_ppr_" + firstSource + "_"
-         //       + (firstSource + numSources - 1) + ".top" + nTop, nTop);
+        //       + (firstSource + numSources - 1) + ".top" + nTop, nTop);
 
         /* For debug */
         VertexIdTranslate vertexIdTranslate = this.drunkardMobEngine.getVertexIdTranslate();
@@ -93,19 +99,21 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         String SQLLitedb = "jdbc:sqlite:" + baseFilename;
         companion.outputDistributions(SQLLitedb, vertexIdTranslate, nTop);
 
-        
-        IdCount[] topForFirst = companion.getTop(firstSource, 10);
+//        IdCount[] topForFirst = companion.getTop(firstSource, 10);
+//
+//        System.out.println("Top visits from source vertex " + vertexIdTranslate.forward(firstSource) + " (internal id=" + firstSource + ")");
+//        for (IdCount idc : topForFirst) {
+//            System.out.println(vertexIdTranslate.backward(idc.id) + ": " + idc.count);
+//        }
 
-        System.out.println("Top visits from source vertex " + vertexIdTranslate.forward(firstSource) + " (internal id=" + firstSource + ")");
-        for (IdCount idc : topForFirst) {
-            System.out.println(vertexIdTranslate.backward(idc.id) + ": " + idc.count);
-        }
-
+        System.out.println("Results Saved... ");
         /* If local, shutdown the companion */
         if (companion instanceof DrunkardCompanion) {
             ((DrunkardCompanion) companion).close();
         }
+        System.out.println("Process finished...");
 
+        
         //om return curNumSources + firstSource == drunkardMobEngine.getEngine().numVertices() ? -1 : curNumSources + firstSource;
         // }
     }
@@ -148,7 +156,6 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 //            }
 //        }
 //    }
-
     @Override
     /**
      * Instruct drunkardMob not to track visits to this vertex's immediate
@@ -222,6 +229,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 //        notCounted[0] = vertex.getId();
 //        return notCounted;
 //    }
+
     protected static FastSharder createSharder(String graphName, int numShards) throws IOException {
         return new FastSharder<EmptyType, EmptyType>(graphName, numShards, null, null, null, null);
     }
@@ -253,38 +261,80 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             String baseFilename = "C:/projects/Datasets/ACM/PTM3DB.db"; //cmdLine.getOptionValue("graph");
             String SQLLitedb = "jdbc:sqlite:" + baseFilename;
             int nShards = 1; //Integer.parseInt(cmdLine.getOptionValue("nshards"));
-            //String fileType = (cmdLine.hasOption("filetype") ? cmdLine.getOptionValue("filetype") : null);
+            String selectSql = "select source.RowId  as Node1,PubCitation.PubId,  target.RowId  as Node2, PubCitation.CitationId, '' AS Value\n"
+                    + "FROM PubCitation \n"
+                    + "INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId\n"
+                    + "INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId \n"
+                    + "and PubCitation.citationId in\n"
+                    + "(select  PubCitation.citationId from pubcitation group by citationId having count(*)>4) ";
 
+            //String fileType = (cmdLine.hasOption("filetype") ? cmdLine.getOptionValue("filetype") : null);
             //--graph=C:/projects/Datasets/DBLPManage/citation-network2_NET.csv --nshards=4 --niters=5 --firstsource=0 --walkspersource=1000 --nsources=1000
             /* Create shards */
             FastSharder sharder = createSharder(baseFilename, nShards);
             if (!new File(ChiFilenames.getFilenameIntervals(baseFilename, nShards)).exists()) {
-                sharder.shard(SQLLitedb, "select source.RowId  as Node1,PubCitation.PubId,  target.RowId  as Node2, PubCitation.CitationId, '' AS Value\n" +
-"FROM PubCitation \n" +
-"INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId\n" +
-//"and PubCitation.PubId in\n" +
-//"(select  PubCitation.PubId from pubcitation group by pubid having count(*)>4)\n" +
-"INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId \n" +
-"and PubCitation.citationId in\n" +
-"(select  PubCitation.citationId from pubcitation group by citationId having count(*)>4); "
-                    //    + " WHERE PubCitation.CitationId NOT LIKE 'RFC%'"
-                );
+                sharder.shard(SQLLitedb, selectSql);
             } else {
                 logger.info("Found shards -- no need to pre-process");
             }
 
             // Run
-            int firstSource =80;//225585; //289931; //Integer.parseInt(cmdLine.getOptionValue("firstsource"));
-            int numSources = 360720;//1397238; //Integer.parseInt(cmdLine.getOptionValue("nsources"));
-            int walksPerSource = 100;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = 4;//Integer.parseInt(cmdLine.getOptionValue("niters"));
+            int firstSource = 80;//225585; 
+            int numSources = 360720;
+            int walksPerSource = 500;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
+            int nIters = 5;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
             EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
+            String selectPubsSql = "select distinct source.RowId  as Node1 \n"
+                    + "                    FROM PubCitation \n"
+                    + "                    INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId";
+
+            Connection connection = null;
+            int[] nodeIds = new int[163366];
+            try {
+
+                connection = DriverManager.getConnection(SQLLitedb);
+
+                Statement statement = connection.createStatement();
+                statement.setQueryTimeout(60);  // set timeout to 30 sec.
+
+                statement.executeUpdate("create table if not exists PRLinks (Source int, Target int, Counts int)");
+                String deleteSQL = String.format("Delete from PRLinks  ");
+                statement.executeUpdate(deleteSQL);
+
+                ResultSet rs = statement.executeQuery(selectPubsSql);
+                int i = 0;
+                while (rs.next()) {
+                    nodeIds[i++] = rs.getInt("Node1");
+
+                }
+
+            } catch (SQLException e) {
+                // if the error message is "out of memory", 
+                // it probably means no database file is found
+                System.err.println(e.getMessage());
+            } finally {
+                try {
+                    if (connection != null) {
+                        connection.close();
+                    }
+                } catch (SQLException e) {
+                    // connection close failed.
+                    System.err.println(e);
+                }
+            }
 
             PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,
-                    firstSource, numSources, walksPerSource, edgeDirection);
-            pp.execute(nIters);
+                    firstSource, 1, walksPerSource, edgeDirection);
+            pp.execute(nIters, nodeIds);
 
+            logger.info("PPR executed !!!");
+//            for (int j = 0; j < nodeIds.length; j++) {
+//                firstSource = nodeIds[j];
+//                PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,
+//                        firstSource, 1, walksPerSource, edgeDirection);
+//                pp.execute(nIters);
+//            }
         } catch (Exception err) {
             err.printStackTrace();
             // automatically generate the help statement

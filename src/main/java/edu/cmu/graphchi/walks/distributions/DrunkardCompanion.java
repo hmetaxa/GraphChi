@@ -338,9 +338,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
-            statement.executeUpdate("create table if not exists PRLinks (Source int, Target int, Counts int)");
-            String deleteSQL = String.format("Delete from PRLinks  ");
-            statement.executeUpdate(deleteSQL);
+            
 
             PreparedStatement bulkInsert = null;
             String sql = "insert into PRLinks values(?,?,?);";
@@ -353,13 +351,16 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
                 drainBuffer(i);
                 DiscreteDistribution distr = distributions[i];
                 IdCount[] topVertices = distr.getTop(nTop);
-
-                for (IdCount vc : topVertices) {
-                    if (vc.count > 0) {
-                        bulkInsert.setInt(1, vertexIdTranslate.backward(sourceVertex));
-                        bulkInsert.setInt(2, vertexIdTranslate.backward(vc.id));
-                        bulkInsert.setInt(3, vc.count);
-                        bulkInsert.executeUpdate();
+                if (topVertices.length > 0) {
+                    int maxCnt = topVertices[0].count;
+                    for (IdCount vc : topVertices) {
+                        int normCnt = Math.round(7 * vc.count / maxCnt);
+                        if (normCnt > 0) {
+                            bulkInsert.setInt(1, vertexIdTranslate.backward(sourceVertex));
+                            bulkInsert.setInt(2, vertexIdTranslate.backward(vc.id));
+                            bulkInsert.setInt(3, normCnt);
+                            bulkInsert.executeUpdate();
+                        }
                     }
                 }
 
@@ -409,11 +410,13 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
                 drainBuffer(i);
                 DiscreteDistribution distr = distributions[i];
                 IdCount[] topVertices = distr.getTop(nTop);
+                int maxCnt = topVertices[0].count;
                 dos.writeInt(sourceVertex);
                 int written = 0;
                 for (IdCount vc : topVertices) {
                     dos.writeInt(vc.id);
-                    dos.writeInt(vc.count);
+                    int normCnt = Math.round(5 * vc.count / maxCnt);
+                    dos.writeInt(normCnt);
                     written++;
                 }
                 while (written < nTop) {

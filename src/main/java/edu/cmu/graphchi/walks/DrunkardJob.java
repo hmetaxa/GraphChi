@@ -38,6 +38,17 @@ public class DrunkardJob {
             walkManager.addWalkBatch(i, walksPerSource);
         }
     }
+    
+     public void configureSourceRangeInternalIds(int[] nodeIds, int walksPerSource) {
+        if (walkManager != null) {
+            throw new IllegalStateException("You can configure walks only once!");
+        }
+        walkManager = factory.createWalkManager(numVertices, nodeIds.length);
+
+        for(int i=0; i < nodeIds.length; i++) {
+            walkManager.addWalkBatch(nodeIds[i], walksPerSource);
+        }
+    }
 
     /**
      * Configure walks starting from list of vertices
