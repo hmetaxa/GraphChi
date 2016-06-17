@@ -258,7 +258,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
              * Preprocess graph if needed
              */
             //String SQLLitedb = "jdbc:sqlite:C:/projects/Datasets/ACM/PTM3DB.db";
-            String baseFilename = "C:/projects/Datasets/ACM/PTM3DB.db"; //cmdLine.getOptionValue("graph");
+            String baseFilename = "C:/projects/Datasets/ACM/PTMDB_ACM2016.db"; //cmdLine.getOptionValue("graph");
             String SQLLitedb = "jdbc:sqlite:" + baseFilename;
             int nShards = 1; //Integer.parseInt(cmdLine.getOptionValue("nshards"));
             String selectSql = "select source.RowId  as Node1,PubCitation.PubId,  target.RowId  as Node2, PubCitation.CitationId, '' AS Value\n"
@@ -279,18 +279,19 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             }
 
             // Run
-            int firstSource = 80;//225585; 
-            int numSources = 360720;
+            int firstSource = 1;//225585; 
+            int numSources = 616212;
             int walksPerSource = 500;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
             int nIters = 5;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
             EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
             String selectPubsSql = "select distinct source.RowId  as Node1 \n"
                     + "                    FROM PubCitation \n"
-                    + "                    INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId";
+                    + "                    INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId  \n"
+                    + "         order by source.RowId";
 
             Connection connection = null;
-            int[] nodeIds = new int[163366];
+            int[] nodeIds = new int[270372];
             try {
 
                 connection = DriverManager.getConnection(SQLLitedb);
