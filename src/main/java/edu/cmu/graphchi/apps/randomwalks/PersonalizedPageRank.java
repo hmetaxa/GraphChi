@@ -282,7 +282,7 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             int firstSource = 1;//225585; 
             int numSources = 616212;
             int walksPerSource = 500;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = 5;//Integer.parseInt(cmdLine.getOptionValue("niters"));
+            int nIters = 3;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
             EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
             String selectPubsSql = "select distinct source.RowId  as Node1 \n"
