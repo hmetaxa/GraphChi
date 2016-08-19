@@ -707,15 +707,16 @@ public class FastSharder<VertexValueType, EdgeValueType> {
      * @param sql returning Node1, Node2, Value (Optional)
      * @throws IOException
      */
-    public void shard(String SQLLitedb, String sql) throws IOException {
+    public int shard(String SQLLitedb, String sql) throws IOException {
 
         Connection connection = null;
+        int maxId = 0;
         try {
             connection = DriverManager.getConnection(SQLLitedb);
 
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(60);  // set timeout to 30 sec.
-            
+
 //            this.addEdge(1, 2, null);
 //            this.addEdge(1, 3, null);
 //            this.addEdge(1, 4, null);
@@ -729,21 +730,19 @@ public class FastSharder<VertexValueType, EdgeValueType> {
 //            this.addEdge(6, 1, null);
 //            this.addEdge(7, 1, null);
 //            this.addEdge(7, 2, null);
-            
-            
-            
-            
             ResultSet rs = statement.executeQuery(sql);
+            
 
             while (rs.next()) {
                 String valueStr = rs.getString("Value");
-                if (valueStr != null && !valueStr.equals("")) {
-                    this.addEdge(Integer.parseInt(rs.getString("Node1")), Integer.parseInt(rs.getString("Node2")), valueStr);
+                int node1 = Integer.parseInt(rs.getString("Node1"));
+                int node2 = Integer.parseInt(rs.getString("Node2"));
 
+                maxId = Math.max(Math.max(maxId, node2), node1);
+                if (valueStr != null && !valueStr.equals("")) {
+                    this.addEdge(node1, node2, valueStr);
                 } else {
-                    
-                    //this.addEdge(Integer.parseInt(rs.getString("PubId")), Integer.parseInt(rs.getString("CitationId")), null);
-                    this.addEdge(Integer.parseInt(rs.getString("Node1")), Integer.parseInt(rs.getString("Node2")), null);
+                    this.addEdge(node1, node2, null);
                 }
 
             }
@@ -763,6 +762,7 @@ public class FastSharder<VertexValueType, EdgeValueType> {
         }
 
         this.process();
+        return maxId;
     }
 
     /**

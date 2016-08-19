@@ -40,24 +40,29 @@ import java.util.logging.Logger;
  */
 public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, EmptyType> {
 
+    public enum ExperimentType {
+
+        ACM,
+        LFR,
+        DBLP
+    }
+
     private static double RESET_PROBABILITY = 0.15;
     private static Logger logger = ChiLogger.getLogger("personalized-pagerank");
     private DrunkardMobEngine<EmptyType, EmptyType> drunkardMobEngine;
     private String baseFilename;
-    private int firstSource;
-    private int numSources;
+
     private int numWalksPerSource;
     private String companionUrl;
     private EdgeDirection edgeDirection;
 
-    public PersonalizedPageRank(String companionUrl, String baseFilename, int nShards, int firstSource, int numSources, int walksPerSource, EdgeDirection edgeDirection) throws Exception {
+    public PersonalizedPageRank(String companionUrl, String baseFilename, int nShards, int walksPerSource, EdgeDirection edgeDirection) throws Exception {
         this.baseFilename = baseFilename;
         this.drunkardMobEngine = new DrunkardMobEngine<EmptyType, EmptyType>(baseFilename, nShards,
                 new IntDrunkardFactory());
 
         this.companionUrl = companionUrl;
-        this.firstSource = firstSource;
-        this.numSources = numSources;
+
         this.numWalksPerSource = walksPerSource;
         this.edgeDirection = edgeDirection;
     }
@@ -105,7 +110,6 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
 //        for (IdCount idc : topForFirst) {
 //            System.out.println(vertexIdTranslate.backward(idc.id) + ": " + idc.count);
 //        }
-
         System.out.println("Results Saved... ");
         /* If local, shutdown the companion */
         if (companion instanceof DrunkardCompanion) {
@@ -113,7 +117,6 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
         }
         System.out.println("Process finished...");
 
-        
         //om return curNumSources + firstSource == drunkardMobEngine.getEngine().numVertices() ? -1 : curNumSources + firstSource;
         // }
     }
@@ -258,20 +261,69 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
              * Preprocess graph if needed
              */
             //String SQLLitedb = "jdbc:sqlite:C:/projects/Datasets/ACM/PTM3DB.db";
-            String baseFilename = "C:/projects/Datasets/ACM/PTMDB_ACM2016.db"; //cmdLine.getOptionValue("graph");
+            int nShards = 1;
+            int walksPerSource = 500;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
+            int nIters = 3;//Integer.parseInt(cmdLine.getOptionValue("niters"));
+            EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
+
+            ExperimentType experimentType = ExperimentType.LFR;
+            boolean ubuntu = false;
+            String dbFilename = "";
+            String dictDir = "";
+
+            if (experimentType == ExperimentType.ACM) {
+                dbFilename = "PTMDB_ACM2016.db";
+                if (ubuntu) {
+                    dictDir = ":/home/omiros/Projects/Datasets/ACM/";
+                } else {
+                    dictDir = "C:\\projects\\Datasets\\ACM\\";
+                }
+            } else if (experimentType == ExperimentType.LFR) {
+                dbFilename = "LFRNet.db";
+                if (ubuntu) {
+                    dictDir = ":/home/omiros/Projects/Datasets/OverlappingNets/";
+                } else {
+                    dictDir = "H:\\Omiros\\Projects\\Datasets\\OverlappingNets\\";
+                }
+            }
+
+            String baseFilename = dictDir + dbFilename; //"C:/projects/Datasets/ACM/PTMDB_ACM2016.db"; //cmdLine.getOptionValue("graph");
             String SQLLitedb = "jdbc:sqlite:" + baseFilename;
-            int nShards = 1; //Integer.parseInt(cmdLine.getOptionValue("nshards"));
-            String selectSql = "select source.RowId  as Node1,PubCitation.PubId,  target.RowId  as Node2, PubCitation.CitationId, '' AS Value\n"
-                    + "FROM PubCitation \n"
-                    + "INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId\n"
-                    + "INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId \n"
-                    + "and PubCitation.citationId in\n"
-                    + "(select  PubCitation.citationId from pubcitation group by citationId having count(*)>4) ";
+
+            String selectSql = "";
+            String selectPubsSql = "";
+
+            if (experimentType == ExperimentType.ACM) {
+                selectSql = "select source.RowId  as Node1,PubCitation.PubId,  target.RowId  as Node2, PubCitation.CitationId, '' AS Value\n"
+                        + "FROM PubCitation \n"
+                        + "INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId\n"
+                        + "INNER JOIN PubCitationPPRAlias target on target.OrigId = PubCitation.CitationId \n"
+                        + "and PubCitation.citationId in\n"
+                        + "(select  PubCitation.citationId from pubcitation group by citationId having count(*)>4) ";
+
+                selectPubsSql = "select distinct source.RowId  as NodeId \n"
+                        + "                    FROM PubCitation \n"
+                        + "                    INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId  \n"
+                        + "         order by source.RowId";
+
+            } else if (experimentType == ExperimentType.LFR) {
+                selectSql = "select  Node1 , Node2, '' As Value\n"
+                        + "From Links ";
+
+                selectPubsSql = "select nodeId FROM\n"
+                        + "(\n"
+                        + "select distinct Node1 as NodeId From Links\n"
+                        + "UNION \n"
+                        + "select distinct Node2 as NodeId From Links\n"
+                        + ") \n"
+                        + "Order By NodeId";
+            }
 
             //String fileType = (cmdLine.hasOption("filetype") ? cmdLine.getOptionValue("filetype") : null);
             //--graph=C:/projects/Datasets/DBLPManage/citation-network2_NET.csv --nshards=4 --niters=5 --firstsource=0 --walkspersource=1000 --nsources=1000
             /* Create shards */
             FastSharder sharder = createSharder(baseFilename, nShards);
+            
             if (!new File(ChiFilenames.getFilenameIntervals(baseFilename, nShards)).exists()) {
                 sharder.shard(SQLLitedb, selectSql);
             } else {
@@ -279,19 +331,10 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
             }
 
             // Run
-            int firstSource = 1;//225585; 
-            int numSources = 616212;
-            int walksPerSource = 500;//Integer.parseInt(cmdLine.getOptionValue("walkspersource"));
-            int nIters = 3;//Integer.parseInt(cmdLine.getOptionValue("niters"));
             String companionUrl = cmdLine.hasOption("companion") ? cmdLine.getOptionValue("companion") : "local";
-            EdgeDirection edgeDirection = EdgeDirection.IN_AND_OUT_EDGES;
-            String selectPubsSql = "select distinct source.RowId  as Node1 \n"
-                    + "                    FROM PubCitation \n"
-                    + "                    INNER JOIN PubCitationPPRAlias source on source.OrigId = PubCitation.pubId  \n"
-                    + "         order by source.RowId";
-
-            Connection connection = null;
-            int[] nodeIds = new int[270372];
+            Connection connection = null;           
+            int[] nodeIds =null;
+            
             try {
 
                 connection = DriverManager.getConnection(SQLLitedb);
@@ -299,14 +342,19 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
                 Statement statement = connection.createStatement();
                 statement.setQueryTimeout(60);  // set timeout to 30 sec.
 
-                statement.executeUpdate("create table if not exists PRLinks (Source int, Target int, Counts int)");
-                String deleteSQL = String.format("Delete from PRLinks  ");
+                statement.executeUpdate("create table if not exists PPRLinks (Source int, Target int, Counts int)");
+                String deleteSQL = String.format("Delete from PPRLinks  ");
                 statement.executeUpdate(deleteSQL);
+                
+                ResultSet rsCnt = statement.executeQuery(" select count(nodeId) as Cnt FROM (" + selectPubsSql +" )");
+                if (rsCnt.next()) {
+                    nodeIds = new int[rsCnt.getInt("Cnt")];                   
+                }
 
                 ResultSet rs = statement.executeQuery(selectPubsSql);
                 int i = 0;
                 while (rs.next()) {
-                    nodeIds[i++] = rs.getInt("Node1");
+                    nodeIds[i++] = rs.getInt("NodeId");
 
                 }
 
@@ -325,9 +373,9 @@ public class PersonalizedPageRank implements WalkUpdateFunction<EmptyType, Empty
                 }
             }
 
-            PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards,
-                    firstSource, 1, walksPerSource, edgeDirection);
+            PersonalizedPageRank pp = new PersonalizedPageRank(companionUrl, baseFilename, nShards, walksPerSource, edgeDirection);
             pp.execute(nIters, nodeIds);
+            
 
             logger.info("PPR executed !!!");
 //            for (int j = 0; j < nodeIds.length; j++) {

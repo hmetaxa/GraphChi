@@ -341,7 +341,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
             
 
             PreparedStatement bulkInsert = null;
-            String sql = "insert into PRLinks values(?,?,?);";
+            String sql = "insert into PPRLinks values(?,?,?);";
 
             connection.setAutoCommit(false);
             bulkInsert = connection.prepareStatement(sql);
@@ -376,10 +376,10 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
 
             if (connection != null) {
                 try {
-                    System.err.print("Transaction is being rolled back");
+                    System.err.print("Transaction is being rolled back \n");
                     connection.rollback();
                 } catch (SQLException excep) {
-                    System.err.print("Error in insert grantSimilarity");
+                    System.err.print("Error in insert grantSimilarity \n");
                 }
             }
         } finally {
