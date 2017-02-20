@@ -360,12 +360,10 @@ public class FastSharder<VertexValueType, EdgeValueType> {
             if (!useSparseDegrees) {
                 degreeOut.writeInt(Integer.reverseBytes(inDegrees[i]));
                 degreeOut.writeInt(Integer.reverseBytes(outDegrees[i]));
-            } else {
-                if (inDegrees[i] + outDegrees[i] > 0) {
-                    degreeOut.writeInt(Integer.reverseBytes(i));
-                    degreeOut.writeInt(Integer.reverseBytes(inDegrees[i]));
-                    degreeOut.writeInt(Integer.reverseBytes(outDegrees[i]));
-                }
+            } else if (inDegrees[i] + outDegrees[i] > 0) {
+                degreeOut.writeInt(Integer.reverseBytes(i));
+                degreeOut.writeInt(Integer.reverseBytes(inDegrees[i]));
+                degreeOut.writeInt(Integer.reverseBytes(outDegrees[i]));
             }
         }
         degreeOut.close();
@@ -731,19 +729,19 @@ public class FastSharder<VertexValueType, EdgeValueType> {
 //            this.addEdge(7, 1, null);
 //            this.addEdge(7, 2, null);
             ResultSet rs = statement.executeQuery(sql);
-            
 
             while (rs.next()) {
-                String valueStr = rs.getString("Value");
+                String value = rs.getString("Value");
                 int node1 = Integer.parseInt(rs.getString("Node1"));
                 int node2 = Integer.parseInt(rs.getString("Node2"));
 
                 maxId = Math.max(Math.max(maxId, node2), node1);
-                if (valueStr != null && !valueStr.equals("")) {
-                    this.addEdge(node1, node2, valueStr);
-                } else {
-                    this.addEdge(node1, node2, null);
-                }
+                this.addEdge(node1, node2, value);
+//                if (valueStr != null && !valueStr.equals("")) {
+//                    this.addEdge(node1, node2, value);
+//                } else {
+//                    this.addEdge(node1, node2, null);
+//                }
 
             }
         } catch (SQLException e) {
@@ -850,7 +848,7 @@ public class FastSharder<VertexValueType, EdgeValueType> {
                             parsedMatrixSize = true;
                         } else {
                             /* The ids start from 1, so we take 1 off. */
-                            /* Vertex - ids on the right side of the bipartite graph have id numLeft + originalId */
+ /* Vertex - ids on the right side of the bipartite graph have id numLeft + originalId */
                             try {
                                 String lastTok = tok[tok.length - 1];
                                 this.addEdge(Integer.parseInt(tok[0]) - 1, numLeft + Integer.parseInt(tok[1]) - 1, lastTok);
@@ -953,12 +951,10 @@ public class FastSharder<VertexValueType, EdgeValueType> {
                         if (!useSparseDegrees) {
                             degreeOut.writeInt(Integer.reverseBytes(verts[i].numInEdges()));
                             degreeOut.writeInt(Integer.reverseBytes(verts[i].numOutEdges()));
-                        } else {
-                            if (verts[i].numEdges() > 0) {
-                                degreeOut.writeInt(Integer.reverseBytes(subIntervalSt + i));
-                                degreeOut.writeInt(Integer.reverseBytes(verts[i].numInEdges()));
-                                degreeOut.writeInt(Integer.reverseBytes(verts[i].numOutEdges()));
-                            }
+                        } else if (verts[i].numEdges() > 0) {
+                            degreeOut.writeInt(Integer.reverseBytes(subIntervalSt + i));
+                            degreeOut.writeInt(Integer.reverseBytes(verts[i].numInEdges()));
+                            degreeOut.writeInt(Integer.reverseBytes(verts[i].numOutEdges()));
                         }
                     }
                 }

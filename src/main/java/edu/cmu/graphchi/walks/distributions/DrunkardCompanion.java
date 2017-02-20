@@ -320,6 +320,7 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
         outputDistributions(outputFile, 10);
     }
 
+    @Override
     public void outputDistributions(String SQLLitedb, VertexIdTranslate vertexIdTranslate, int nTop) throws RemoteException {
         logger.info("Waiting for processing to finish");
         while (outstanding.get() > 0) {
@@ -338,8 +339,6 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
-            
-
             PreparedStatement bulkInsert = null;
             String sql = "insert into PPRLinks values(?,?,?);";
 
@@ -350,11 +349,16 @@ public abstract class DrunkardCompanion extends UnicastRemoteObject implements R
                 int sourceVertex = sourceVertexIds[i];
                 drainBuffer(i);
                 DiscreteDistribution distr = distributions[i];
-                IdCount[] topVertices = distr.getTop(nTop);
+                IdCount[] topVertices = distr.getTop(nTop == -1 ? distr.totalCount() : nTop); //nTop
                 if (topVertices.length > 0) {
-                    int maxCnt = topVertices[0].count;
+                    //int maxCnt = topVertices[0].count;
+                    int totalCnt = 0;
                     for (IdCount vc : topVertices) {
-                        int normCnt = Math.round(7 * vc.count / maxCnt);
+                        totalCnt += vc.count;
+                    }
+                    double avgCnt = totalCnt / topVertices.length;
+                    for (IdCount vc : topVertices) {
+                        int normCnt = (int) Math.max(1, Math.round(2 * vc.count / avgCnt));
                         if (normCnt > 0) {
                             bulkInsert.setInt(1, vertexIdTranslate.backward(sourceVertex));
                             bulkInsert.setInt(2, vertexIdTranslate.backward(vc.id));
